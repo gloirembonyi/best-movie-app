@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import Navbar from "@/components/Navbar";
+import Footer from "@/components/Footer";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -18,17 +20,9 @@ export default function RootLayout({
     <html lang="en" className="scroll-smooth">
       <body className={inter.className}>
         <div className="min-h-screen flex flex-col">
-          <header className="bg-gray-900 py-4">
-            <div className="container mx-auto px-4">
-              <h1 className="text-2xl font-bold">StreamLoom</h1>
-            </div>
-          </header>
-          <main className="flex-grow">{children}</main>
-          <footer className="bg-gray-900 py-4 mt-8">
-            <div className="container mx-auto px-4 text-center">
-              <p>© {new Date().getFullYear()} StreamLoom</p>
-            </div>
-          </footer>
+          <Navbar />
+          <main className="flex-grow pt-16 md:pt-20">{children}</main>
+          <Footer />
         </div>
       </body>
     </html>

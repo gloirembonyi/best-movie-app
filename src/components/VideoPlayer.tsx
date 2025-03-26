@@ -8,6 +8,7 @@ import {
   FaCompress,
   FaVolumeUp,
   FaVolumeMute,
+  FaRedo,
 } from "react-icons/fa";
 import { motion } from "framer-motion";
 
@@ -15,12 +16,16 @@ interface VideoPlayerProps {
   videoKey: string;
   isMainMovie?: boolean;
   movieId?: number;
+  posterImage?: string;
+  title?: string;
 }
 
 export default function VideoPlayer({
   videoKey,
   isMainMovie = false,
   movieId,
+  posterImage,
+  title = "Movie",
 }: VideoPlayerProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -31,20 +36,31 @@ export default function VideoPlayer({
   const [showControls, setShowControls] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   const [hasFallback, setHasFallback] = useState(false);
+  const [errorCount, setErrorCount] = useState(0);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // For YouTube embed
-  const isYouTube = !isMainMovie && videoKey !== "movie";
+  const isYouTube =
+    !isMainMovie && videoKey !== "movie" && videoKey?.length > 5;
 
   // Function to create mock/fallback video source
   const getFallbackSource = () => {
     if (isMainMovie) {
       return `/movies/movie_${movieId || "1"}.mp4`;
     }
-    return `/trailers/trailer_${videoKey || "default"}.mp4`;
+    return `/trailers/trailer_default.mp4`;
+  };
+
+  // Get poster image
+  const getPosterImage = () => {
+    if (posterImage) return posterImage;
+    if (isMainMovie) {
+      return `/placeholder-movie-${(movieId ?? 1) % 5 || 1}.jpg`;
+    }
+    return `/placeholder-backdrop.jpg`;
   };
 
   // Setup player
@@ -71,6 +87,7 @@ export default function VideoPlayer({
 
     const onError = () => {
       console.error("Video error occurred");
+      setErrorCount((prev) => prev + 1);
       setHasFallback(true);
       setIsLoading(false);
     };
@@ -83,13 +100,15 @@ export default function VideoPlayer({
 
     // Set volume
     video.volume = volume;
+    video.muted = isMuted;
 
-    // Check if video source can be loaded
-    setTimeout(() => {
-      if (isLoading && !video.readyState) {
+    // Check if video source can be loaded - use shorter timeout
+    const loadingTimeout = setTimeout(() => {
+      if (isLoading) {
         setHasFallback(true);
+        setIsLoading(false);
       }
-    }, 3000);
+    }, 2000);
 
     // Cleanup
     return () => {
@@ -97,8 +116,9 @@ export default function VideoPlayer({
       video.removeEventListener("timeupdate", onTimeUpdate);
       video.removeEventListener("ended", onEnded);
       video.removeEventListener("error", onError);
+      clearTimeout(loadingTimeout);
     };
-  }, [isMainMovie, volume, isLoading]);
+  }, [isMainMovie, volume, isLoading, isMuted]);
 
   // Play/pause
   useEffect(() => {
@@ -107,6 +127,7 @@ export default function VideoPlayer({
         videoRef.current.play().catch((error) => {
           console.error("Play failed:", error);
           setIsPlaying(false);
+          setHasFallback(true);
         });
       } else {
         videoRef.current.pause();
@@ -148,6 +169,19 @@ export default function VideoPlayer({
     };
   }, [isPlaying]);
 
+  // Handle fullscreen changes
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+    };
+  }, []);
+
   // Handle volume change
   const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newVolume = parseFloat(e.target.value);
@@ -167,9 +201,11 @@ export default function VideoPlayer({
     if (videoRef.current) {
       if (isMuted) {
         videoRef.current.volume = volume;
+        videoRef.current.muted = false;
         setIsMuted(false);
       } else {
         videoRef.current.volume = 0;
+        videoRef.current.muted = true;
         setIsMuted(true);
       }
     }
@@ -188,24 +224,30 @@ export default function VideoPlayer({
   const toggleFullscreen = () => {
     if (!containerRef.current) return;
 
-    if (!isFullscreen) {
-      if (containerRef.current.requestFullscreen) {
-        containerRef.current.requestFullscreen();
-      } else if ((containerRef.current as any).webkitRequestFullscreen) {
-        (containerRef.current as any).webkitRequestFullscreen();
-      } else if ((containerRef.current as any).msRequestFullscreen) {
-        (containerRef.current as any).msRequestFullscreen();
+    if (!document.fullscreenElement) {
+      try {
+        if (containerRef.current.requestFullscreen) {
+          containerRef.current.requestFullscreen();
+        } else if ((containerRef.current as any).webkitRequestFullscreen) {
+          (containerRef.current as any).webkitRequestFullscreen();
+        } else if ((containerRef.current as any).msRequestFullscreen) {
+          (containerRef.current as any).msRequestFullscreen();
+        }
+      } catch (error) {
+        console.error("Fullscreen error:", error);
       }
-      setIsFullscreen(true);
     } else {
-      if (document.exitFullscreen) {
-        document.exitFullscreen();
-      } else if ((document as any).webkitExitFullscreen) {
-        (document as any).webkitExitFullscreen();
-      } else if ((document as any).msExitFullscreen) {
-        (document as any).msExitFullscreen();
+      try {
+        if (document.exitFullscreen) {
+          document.exitFullscreen();
+        } else if ((document as any).webkitExitFullscreen) {
+          (document as any).webkitExitFullscreen();
+        } else if ((document as any).msExitFullscreen) {
+          (document as any).msExitFullscreen();
+        }
+      } catch (error) {
+        console.error("Exit fullscreen error:", error);
       }
-      setIsFullscreen(false);
     }
   };
 
@@ -216,13 +258,66 @@ export default function VideoPlayer({
     return `${minutes}:${seconds < 10 ? "0" : ""}${seconds}`;
   };
 
+  // Reset video player
+  const resetPlayer = () => {
+    setHasFallback(false);
+    setIsLoading(true);
+    setErrorCount(0);
+
+    if (videoRef.current) {
+      videoRef.current.load();
+
+      // Small delay before attempting to play
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current
+            .play()
+            .then(() => {
+              setIsPlaying(true);
+              setIsLoading(false);
+            })
+            .catch((err) => {
+              console.error("Play failed after reset:", err);
+              setHasFallback(true);
+              setIsLoading(false);
+            });
+        }
+      }, 500);
+    }
+  };
+
+  // Always use fallback for three or more errors
+  if (errorCount >= 3) {
+    return (
+      <div className="relative w-full h-full flex items-center justify-center bg-gray-900 rounded-lg">
+        <div className="text-center p-6 max-w-md">
+          <div className="text-5xl mb-4">🎬</div>
+          <h3 className="text-xl font-bold mb-2">Video Unavailable</h3>
+          <p className="text-gray-300 mb-4">
+            {isMainMovie
+              ? "This movie is currently unavailable for playback."
+              : "The trailer for this movie is currently unavailable."}
+          </p>
+          <div>
+            <img
+              src={getPosterImage()}
+              alt={title}
+              className="w-full h-auto rounded-lg shadow-lg mx-auto"
+              style={{ maxHeight: "300px", objectFit: "cover" }}
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Render YouTube embed
   if (isYouTube) {
     return (
-      <div className="relative w-full h-0 pb-[56.25%]">
+      <div className="relative w-full h-0 pb-[56.25%] bg-gray-900 rounded-lg overflow-hidden">
         <iframe
           src={`https://www.youtube.com/embed/${videoKey}?autoplay=0&controls=1&modestbranding=1&rel=0`}
-          title="YouTube video player"
+          title={`${title} Trailer`}
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
           allowFullScreen
           className="absolute top-0 left-0 w-full h-full rounded-lg"
@@ -238,25 +333,26 @@ export default function VideoPlayer({
       onMouseEnter={() => setShowControls(true)}
       onMouseLeave={() => isPlaying && setShowControls(false)}
     >
-      {/* Video */}
+      {/* Loading */}
       {isLoading && (
-        <div className="absolute inset-0 flex items-center justify-center">
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-900/80 z-10">
           <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
         </div>
       )}
 
+      {/* Fallback/Error message */}
       {hasFallback && (
-        <div className="absolute inset-0 flex items-center justify-center bg-gray-900 bg-opacity-70 z-10">
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-900/80 z-10">
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="text-center p-6 rounded-lg"
+            className="text-center p-6 rounded-lg bg-gray-800/80 backdrop-blur-sm max-w-md"
           >
             <p className="text-xl font-semibold mb-3">Simulated Playback</p>
             <p className="text-gray-300 mb-4">
               {isMainMovie
                 ? "This is a simulated movie playback environment."
-                : "Trailer video is currently unavailable."}
+                : "Using placeholder trailer for demonstration."}
             </p>
             <button
               onClick={() => {
@@ -272,13 +368,13 @@ export default function VideoPlayer({
         </div>
       )}
 
+      {/* Video element */}
       <video
         ref={videoRef}
-        className="w-full h-full object-contain"
-        poster={
-          isMainMovie ? `/placeholder-movie-${movieId % 5 || 1}.jpg` : undefined
-        }
+        className="w-full h-full object-contain bg-black"
+        poster={getPosterImage()}
         onClick={() => setIsPlaying(!isPlaying)}
+        playsInline
       >
         <source src={getFallbackSource()} type="video/mp4" />
         Your browser does not support the video tag.
@@ -290,6 +386,7 @@ export default function VideoPlayer({
         initial={{ opacity: 0 }}
         animate={{ opacity: showControls ? 1 : 0 }}
         transition={{ duration: 0.3 }}
+        style={{ pointerEvents: showControls ? "auto" : "none" }}
       >
         {/* Progress bar */}
         <div className="w-full mb-4">
@@ -316,6 +413,7 @@ export default function VideoPlayer({
             <button
               onClick={() => setIsPlaying(!isPlaying)}
               className="text-white focus:outline-none hover:text-blue-400 transition-colors"
+              aria-label={isPlaying ? "Pause" : "Play"}
             >
               {isPlaying ? <FaPause size={20} /> : <FaPlay size={20} />}
             </button>
@@ -324,6 +422,7 @@ export default function VideoPlayer({
               <button
                 onClick={toggleMute}
                 className="text-white focus:outline-none hover:text-blue-400 transition-colors"
+                aria-label={isMuted ? "Unmute" : "Mute"}
               >
                 {isMuted ? (
                   <FaVolumeMute size={20} />
@@ -345,6 +444,7 @@ export default function VideoPlayer({
                     (isMuted ? 0 : volume) * 100
                   }%, rgba(255,255,255,0.2) ${(isMuted ? 0 : volume) * 100}%)`,
                 }}
+                aria-label="Volume"
               />
             </div>
 
@@ -353,12 +453,23 @@ export default function VideoPlayer({
             </span>
           </div>
 
-          <button
-            onClick={toggleFullscreen}
-            className="text-white focus:outline-none hover:text-blue-400 transition-colors"
-          >
-            {isFullscreen ? <FaCompress size={18} /> : <FaExpand size={18} />}
-          </button>
+          <div className="flex items-center space-x-3">
+            <button
+              onClick={resetPlayer}
+              className="text-white focus:outline-none hover:text-blue-400 transition-colors"
+              aria-label="Reload video"
+            >
+              <FaRedo size={16} />
+            </button>
+
+            <button
+              onClick={toggleFullscreen}
+              className="text-white focus:outline-none hover:text-blue-400 transition-colors"
+              aria-label={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
+            >
+              {isFullscreen ? <FaCompress size={18} /> : <FaExpand size={18} />}
+            </button>
+          </div>
         </div>
       </motion.div>
 

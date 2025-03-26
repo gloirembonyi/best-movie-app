@@ -1,25 +1,37 @@
 "use client";
 
+import React from 'react';
 import {
   FaExclamationTriangle,
   FaRedoAlt,
   FaFilm,
   FaHome,
+  FaRedo,
 } from "react-icons/fa";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
 
-interface ErrorFallbackProps {
-  title?: string;
+export interface ErrorFallbackProps {
+  error?: Error | null;
   message?: string;
+  type?: "network" | "not-found" | "server" | "generic";
+  resetErrorBoundary?: () => void;
 }
 
 export default function ErrorFallback({
-  title = "Could Not Load Data",
-  message = "There was an error connecting to the movie database. This could be due to network issues or the API being temporarily unavailable.",
+  error,
+  message = "Something went wrong",
+  type = "generic",
+  resetErrorBoundary,
 }: ErrorFallbackProps) {
   const router = useRouter();
+
+  const getErrorMessage = () => {
+    if (message) return message;
+    if (error?.message) return error.message;
+    return "An unexpected error occurred";
+  };
 
   const handleRetry = () => {
     router.refresh();
@@ -39,7 +51,10 @@ export default function ErrorFallback({
           transition={{ duration: 0.6, delay: 0.2 }}
           className="w-24 h-24 mx-auto mb-6 rounded-full bg-yellow-500/20 flex items-center justify-center"
         >
-          <FaExclamationTriangle className="text-yellow-500 text-5xl" />
+          {type === "network" && <FaExclamationTriangle className="text-yellow-500 text-5xl" />}
+          {type === "not-found" && "🔍"}
+          {type === "server" && "🖥️"}
+          {type === "generic" && <FaExclamationTriangle className="text-yellow-500 text-5xl" />}
         </motion.div>
 
         <motion.h2
@@ -48,7 +63,10 @@ export default function ErrorFallback({
           transition={{ duration: 0.3, delay: 0.3 }}
           className="text-2xl md:text-3xl font-bold mb-4 gradient-text"
         >
-          {title}
+          {type === "network" && "Network Error"}
+          {type === "not-found" && "Not Found"}
+          {type === "server" && "Server Error"}
+          {type === "generic" && "Something Went Wrong"}
         </motion.h2>
 
         <motion.p
@@ -57,7 +75,7 @@ export default function ErrorFallback({
           transition={{ duration: 0.3, delay: 0.4 }}
           className="text-gray-300 mb-8"
         >
-          {message}
+          {getErrorMessage()}
         </motion.p>
 
         <motion.div
@@ -66,21 +84,36 @@ export default function ErrorFallback({
           transition={{ duration: 0.3, delay: 0.5 }}
           className="flex flex-wrap justify-center gap-4"
         >
-          <button
-            onClick={handleRetry}
-            className="btn-primary flex items-center"
-          >
-            <FaRedoAlt className="mr-2" /> Try Again
-          </button>
+          {resetErrorBoundary && (
+            <button
+              onClick={resetErrorBoundary}
+              className="btn-primary flex items-center"
+            >
+              <FaRedo className="mr-2" /> Try Again
+            </button>
+          )}
 
           <Link href="/" className="btn-secondary flex items-center">
-            <FaHome className="mr-2" /> Go Home
+            <FaHome className="mr-2" /> Back to Home
           </Link>
 
           <Link href="/movies" className="btn-secondary flex items-center">
             <FaFilm className="mr-2" /> Browse Movies
           </Link>
         </motion.div>
+
+        {process.env.NODE_ENV === "development" && error && (
+          <div className="mt-8 text-left">
+            <details className="bg-red-900/30 p-4 rounded-lg text-sm">
+              <summary className="cursor-pointer font-medium mb-2">
+                Error Details (Development Only)
+              </summary>
+              <pre className="overflow-x-auto p-2 bg-black/50 rounded mt-2 text-red-300">
+                {error.stack || error.message}
+              </pre>
+            </details>
+          </div>
+        )}
       </div>
     </motion.div>
   );

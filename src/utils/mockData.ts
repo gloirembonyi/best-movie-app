@@ -7,8 +7,8 @@ const mockTrendingMovies: Movie[] = [
     id: 1,
     title: "Interstellar",
     overview: "A team of explorers travel through a wormhole in space in an attempt to ensure humanity's survival.",
-    poster_path: "/gEU2QniE6E77NI6lCU6MxlNBvIx.jpg",
-    backdrop_path: "/xJHokMbljvjADYdit5fK5VQsXEG.jpg",
+    poster_path: "/placeholder-movie-1.jpg",
+    backdrop_path: "/placeholder-backdrop.jpg",
     release_date: "2014-11-05",
     vote_average: 8.4,
     vote_count: 25000,
@@ -22,8 +22,8 @@ const mockTrendingMovies: Movie[] = [
     id: 2,
     title: "The Dark Knight",
     overview: "When the menace known as the Joker wreaks havoc and chaos on the people of Gotham, Batman must accept one of the greatest psychological and physical tests of his ability to fight injustice.",
-    poster_path: "/qJ2tW6WMUDux911r6m7haRef0WH.jpg",
-    backdrop_path: "/nMKdUUepR0i5zn0y1T4CsSB5chy.jpg",
+    poster_path: "/placeholder-movie-2.jpg",
+    backdrop_path: "/placeholder-backdrop.jpg",
     release_date: "2008-07-18",
     vote_average: 8.5,
     vote_count: 24000,
@@ -37,8 +37,8 @@ const mockTrendingMovies: Movie[] = [
     id: 3,
     title: "Avatar",
     overview: "In the 22nd century, a paraplegic Marine is dispatched to the moon Pandora on a unique mission, but becomes torn between following orders and protecting an alien civilization.",
-    poster_path: "/jRXYjXNq0Cs2TcJjLkki24MLp7u.jpg",
-    backdrop_path: "/o0s4XsEDfDlvit5pDRKjzXR4pp2.jpg",
+    poster_path: "/placeholder-movie-3.jpg",
+    backdrop_path: "/placeholder-backdrop.jpg",
     release_date: "2009-12-18",
     vote_average: 7.8,
     vote_count: 23000,
@@ -52,8 +52,8 @@ const mockTrendingMovies: Movie[] = [
     id: 4,
     title: "Inception",
     overview: "A thief who steals corporate secrets through the use of dream-sharing technology is given the inverse task of planting an idea into the mind of a C.E.O.",
-    poster_path: "/9gk7adHYeDvHkCSEqAvQNLV5Uge.jpg",
-    backdrop_path: "/s3TBrRGB1iav7gFOCNx3H31MoES.jpg",
+    poster_path: "/placeholder-movie-4.jpg",
+    backdrop_path: "/placeholder-backdrop.jpg",
     release_date: "2010-07-16",
     vote_average: 8.3,
     vote_count: 28000,
@@ -67,8 +67,8 @@ const mockTrendingMovies: Movie[] = [
     id: 5,
     title: "The Matrix",
     overview: "A computer hacker learns from mysterious rebels about the true nature of his reality and his role in the war against its controllers.",
-    poster_path: "/f89U3ADr1oiB1s9GkdPOEpXUk5H.jpg",
-    backdrop_path: "/fNG7i7RqMErkcqhohV2a6cV1Ehy.jpg",
+    poster_path: "/placeholder-movie-5.jpg",
+    backdrop_path: "/placeholder-backdrop.jpg",
     release_date: "1999-03-31",
     vote_average: 8.2,
     vote_count: 20000,
@@ -82,8 +82,8 @@ const mockTrendingMovies: Movie[] = [
     id: 6,
     title: "The Shawshank Redemption",
     overview: "Two imprisoned men bond over a number of years, finding solace and eventual redemption through acts of common decency.",
-    poster_path: "/q6y0Go1tsGEsmtFryDOJo3dEmqu.jpg",
-    backdrop_path: "/kXfqcdQKsToO0OUXHcrrNCHDBzO.jpg",
+    poster_path: "/placeholder-movie-1.jpg",
+    backdrop_path: "/placeholder-backdrop.jpg",
     release_date: "1994-09-23",
     vote_average: 8.7,
     vote_count: 22000,
@@ -389,10 +389,13 @@ export const getMockMovieDetails = (id: number): MovieDetails => {
         ]
       },
       similar: {
+        page: 1,
         results: allMockMovies.filter(m => 
           m.id !== id && 
           m.genre_ids.some(g => foundMovie.genre_ids.includes(g))
-        ).slice(0, 6)
+        ).slice(0, 6),
+        total_pages: 1,
+        total_results: 6
       }
     };
   }
@@ -423,7 +426,12 @@ export const getMockMovieDetails = (id: number): MovieDetails => {
     production_companies: [],
     videos: { results: [] },
     credits: { cast: [], crew: [] },
-    similar: { results: [] },
+    similar: { 
+      page: 1,
+      results: [],
+      total_pages: 0,
+      total_results: 0
+    },
     adult: false,
     video: false,
     original_language: "en"
@@ -488,4 +496,183 @@ export const searchMockMovies = (query: string): MovieListResponse => {
   };
 };
 
-export default mockMovieResponses; 
+export default mockMovieResponses;
+
+export interface MockMovie {
+  id: number;
+  title: string;
+  overview: string;
+  release_date: string;
+  vote_average: number;
+  vote_count: number;
+  poster_path: string;
+  backdrop_path: string;
+  genre_ids: number[];
+}
+
+const genres = {
+  28: "Action",
+  12: "Adventure",
+  16: "Animation",
+  35: "Comedy",
+  80: "Crime",
+  99: "Documentary",
+  18: "Drama",
+  10751: "Family",
+  14: "Fantasy",
+  36: "History",
+  27: "Horror",
+  10402: "Music",
+  9648: "Mystery",
+  10749: "Romance",
+  878: "Science Fiction",
+  10770: "TV Movie",
+  53: "Thriller",
+  10752: "War",
+  37: "Western"
+};
+
+export const getGenreName = (id: number): string => {
+  return genres[id as keyof typeof genres] || 'Unknown';
+};
+
+export const getMockMovies = (): MockMovie[] => {
+  return [
+    {
+      id: 1,
+      title: "Rise of the Phoenix",
+      overview: "When a mysterious artifact is discovered in the desert, a former archaeologist must race against time to prevent it from falling into the wrong hands.",
+      release_date: "2023-05-15",
+      vote_average: 8.4,
+      vote_count: 1259,
+      poster_path: "/placeholder-movie-1.jpg",
+      backdrop_path: "/placeholder-backdrop.jpg",
+      genre_ids: [28, 12, 878]
+    },
+    {
+      id: 2,
+      title: "Shadows of Destiny",
+      overview: "A detective with a troubled past investigates a series of murders that seem to be connected to an ancient prophecy.",
+      release_date: "2023-07-22",
+      vote_average: 7.9,
+      vote_count: 982,
+      poster_path: "/placeholder-movie-2.jpg",
+      backdrop_path: "/placeholder-backdrop.jpg",
+      genre_ids: [80, 9648, 53]
+    },
+    {
+      id: 3,
+      title: "Beyond the Horizon",
+      overview: "A group of astronauts embarks on a mission to explore a newly discovered planet, only to find something beyond their wildest imagination.",
+      release_date: "2023-03-10",
+      vote_average: 8.1,
+      vote_count: 1547,
+      poster_path: "/placeholder-movie-3.jpg",
+      backdrop_path: "/placeholder-backdrop.jpg",
+      genre_ids: [878, 12, 18]
+    },
+    {
+      id: 4,
+      title: "The Last Symphony",
+      overview: "A brilliant composer struggling with hearing loss races to complete his final masterpiece before time runs out.",
+      release_date: "2023-09-05",
+      vote_average: 8.7,
+      vote_count: 1103,
+      poster_path: "/placeholder-movie-4.jpg",
+      backdrop_path: "/placeholder-backdrop.jpg",
+      genre_ids: [18, 10402, 36]
+    },
+    {
+      id: 5,
+      title: "Whispers in the Dark",
+      overview: "When a family moves into a remote countryside house, they discover it has a terrifying history and is haunted by its past residents.",
+      release_date: "2023-10-31",
+      vote_average: 7.3,
+      vote_count: 876,
+      poster_path: "/placeholder-movie-5.jpg",
+      backdrop_path: "/placeholder-backdrop.jpg",
+      genre_ids: [27, 9648, 53]
+    },
+    {
+      id: 6,
+      title: "Crown of Thorns",
+      overview: "In a medieval kingdom on the brink of war, a young princess must navigate political intrigue and betrayal to save her people.",
+      release_date: "2023-06-18",
+      vote_average: 8.2,
+      vote_count: 1322,
+      poster_path: "/placeholder-movie-1.jpg",
+      backdrop_path: "/placeholder-backdrop.jpg",
+      genre_ids: [36, 10752, 18]
+    },
+    {
+      id: 7,
+      title: "Neon Nights",
+      overview: "In a cyberpunk future, a street-smart hacker takes on a dangerous mission that could either save humanity or doom it forever.",
+      release_date: "2023-08-12",
+      vote_average: 7.8,
+      vote_count: 954,
+      poster_path: "/placeholder-movie-2.jpg",
+      backdrop_path: "/placeholder-backdrop.jpg",
+      genre_ids: [878, 28, 53]
+    },
+    {
+      id: 8,
+      title: "The Forgotten Path",
+      overview: "A man with amnesia embarks on a journey to recover his memories, discovering a past he might have preferred to forget.",
+      release_date: "2023-02-25",
+      vote_average: 8.0,
+      vote_count: 1088,
+      poster_path: "/placeholder-movie-3.jpg",
+      backdrop_path: "/placeholder-backdrop.jpg",
+      genre_ids: [18, 9648, 53]
+    },
+    {
+      id: 9,
+      title: "Heartstrings",
+      overview: "Two musicians from different worlds find their paths crossing and discover that their music and hearts are intertwined.",
+      release_date: "2023-04-14",
+      vote_average: 7.5,
+      vote_count: 723,
+      poster_path: "/placeholder-movie-4.jpg",
+      backdrop_path: "/placeholder-backdrop.jpg",
+      genre_ids: [10749, 10402, 18]
+    },
+    {
+      id: 10,
+      title: "Legacy of Champions",
+      overview: "A retired athlete returns to the sport that made him famous for one last chance at glory and redemption.",
+      release_date: "2023-11-17",
+      vote_average: 8.3,
+      vote_count: 1156,
+      poster_path: "/placeholder-movie-5.jpg",
+      backdrop_path: "/placeholder-backdrop.jpg",
+      genre_ids: [18, 28, 36]
+    },
+    {
+      id: 11,
+      title: "Mirage City",
+      overview: "A detective investigates a series of impossible crimes in a city where reality and illusion blend together.",
+      release_date: "2023-01-08",
+      vote_average: 7.6,
+      vote_count: 865,
+      poster_path: "/placeholder-movie-1.jpg",
+      backdrop_path: "/placeholder-backdrop.jpg",
+      genre_ids: [9648, 53, 14]
+    },
+    {
+      id: 12,
+      title: "Echoes of Time",
+      overview: "When a physicist creates a device that can communicate with the past, he accidentally triggers a chain of events that threatens the fabric of reality.",
+      release_date: "2023-12-01",
+      vote_average: 8.5,
+      vote_count: 1427,
+      poster_path: "/placeholder-movie-2.jpg",
+      backdrop_path: "/placeholder-backdrop.jpg",
+      genre_ids: [878, 12, 9648]
+    }
+  ];
+};
+
+export const getMockData = (): MockMovie[] => {
+  return getMockMovies();
+}; 

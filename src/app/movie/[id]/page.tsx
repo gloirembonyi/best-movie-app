@@ -1,8 +1,19 @@
-import { Metadata } from "next";
+"use client";
+
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { FaStar, FaCalendar, FaClock, FaPlay } from "react-icons/fa";
-import { getMovieDetails, getImageUrl } from "@/services/movieService";
+import { useParams } from "next/navigation";
+import {
+  FaStar,
+  FaCalendar,
+  FaClock,
+  FaPlay,
+  FaArrowLeft,
+} from "react-icons/fa";
+import { motion } from "framer-motion";
+import { getMovieDetails } from "@/services/movieService";
+import { getImageUrl, getPlaceholder } from "@/utils/imageUtils";
 import {
   formatDate,
   formatRuntime,
@@ -10,327 +21,428 @@ import {
   formatNumber,
   getYoutubeUrl,
 } from "@/utils/formatters";
-import MovieGrid from "@/components/MovieGrid";
-import MovieCast from "@/components/MovieCast";
-import VideoPlayer from "@/components/VideoPlayer";
+import LoadingSpinner from "@/components/LoadingSpinner";
 import ErrorFallback from "@/components/ErrorFallback";
 
-type Params = {
-  id: string;
-};
+export default function MovieDetail() {
+  const { id } = useParams();
+  const [movie, setMovie] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+  const [activeTab, setActiveTab] = useState<"overview" | "cast" | "similar">("overview");
 
-// Generate metadata for SEO
-export async function generateMetadata({
-  params,
-}: {
-  params: Params;
-}): Promise<Metadata> {
-  try {
-    // Await params properly
-    const id = params.id ? parseInt(params.id) : 0;
-    const movie = await getMovieDetails(id);
-
-    return {
-      title: `${movie.title} | StreamLoom`,
-      description: movie.overview.substring(0, 160),
-      openGraph: {
-        images:
-          getImageUrl(movie.poster_path, "w500") || "/placeholder-poster.svg",
-      },
+  useEffect(() => {
+    const fetchMovie = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        // Get movie details using the ID
+        const movieId = Array.isArray(id)
+          ? parseInt(id[0])
+          : parseInt(id as string);
+        const movieData = await getMovieDetails(movieId);
+        setMovie(movieData);
+      } catch (error) {
+        console.error("Error fetching movie:", error);
+        setError(error instanceof Error ? error : new Error("Failed to fetch movie details"));
+      } finally {
+        setIsLoading(false);
+      }
     };
-  } catch (error) {
-    return {
-      title: "Movie | StreamLoom",
-      description: "View movie details on StreamLoom",
-    };
-  }
-}
 
-export default async function MoviePage({ params }: { params: Params }) {
-  try {
-    // Await params properly
-    const id = params.id ? parseInt(params.id) : 0;
-    const movie = await getMovieDetails(id);
-    const trailers = movie.videos.results.filter(
-      (video) =>
-        video.site === "YouTube" &&
-        (video.type === "Trailer" || video.type === "Teaser")
-    );
+    fetchMovie();
+  }, [id]);
 
-    // Get main cast (top 6 actors)
-    const mainCast = movie.credits.cast.slice(0, 6);
-
-    // Get director and writers
-    const director = movie.credits.crew.find(
-      (person) => person.job === "Director"
-    );
-    const writers = movie.credits.crew
-      .filter(
-        (person) =>
-          person.job === "Screenplay" ||
-          person.job === "Writer" ||
-          person.job === "Story"
-      )
-      .slice(0, 2);
-
-    // Get similar movies
-    const similarMovies = movie.similar.results.slice(0, 6);
-
+  if (isLoading) {
     return (
-      <>
-        {/* Backdrop header */}
-        <div className="relative w-full h-[60vh] md:h-[70vh]">
-          <div className="absolute inset-0">
-            <Image
-              src={
-                getImageUrl(movie.backdrop_path, "original") ||
-                "/placeholder-backdrop.svg"
-              }
-              alt={movie.title}
-              fill
-              priority
-              className="object-cover"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black via-black/70 to-transparent" />
-          </div>
+      <div className="min-h-screen flex justify-center items-center">
+        <LoadingSpinner size="lg" text="Loading movie details..." />
+      </div>
+    );
+  }
 
-          <div className="relative h-full container-custom flex flex-col justify-end pb-8 z-10">
-            <div className="grid grid-cols-1 md:grid-cols-[1fr_3fr] gap-8 items-end">
-              {/* Poster (only on desktop) */}
-              <div className="hidden md:block relative aspect-[2/3] max-w-[300px] rounded-lg overflow-hidden shadow-xl">
+  if (error || !movie) {
+    return (
+      <ErrorFallback 
+        error={error}
+        message="Unable to load movie details. Please try again later."
+        type="network"
+      />
+    );
+  }
+
+  const releaseYear = new Date(movie.release_date).getFullYear();
+
+  // Prepare backdrop image with fallback
+  const backdropPath = getImageUrl(movie.backdrop_path || movie.poster_path, "original") || getPlaceholder("backdrop");
+
+  // Animation variants
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1,
+      },
+    },
+  };
+
+  const itemVariants = {
+    hidden: { y: 20, opacity: 0 },
+    visible: {
+      y: 0,
+      opacity: 1,
+      transition: { type: "spring", stiffness: 100 },
+    },
+  };
+
+  return (
+    <div className="min-h-screen">
+      {/* Backdrop */}
+      <div className="relative w-full h-[70vh]">
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-gray-900/70 to-gray-900"></div>
+        <div className="absolute inset-0 bg-cover bg-center opacity-60" 
+          style={{ backgroundImage: `url(${backdropPath})` }}>
+        </div>
+
+        {/* Back button */}
+        <div className="absolute top-6 left-6 z-10">
+          <Link
+            href="/"
+            className="flex items-center text-white bg-black/50 hover:bg-black/70 backdrop-blur-sm px-4 py-2 rounded-full transition-all"
+          >
+            <FaArrowLeft className="mr-2" /> Back
+          </Link>
+        </div>
+
+        {/* Movie info overlay */}
+        <motion.div
+          className="absolute bottom-0 left-0 w-full p-8 bg-gradient-to-t from-gray-900 to-transparent"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+        >
+          <div className="container-custom">
+            <div className="flex flex-col md:flex-row gap-8 items-end">
+              <div className="hidden md:block w-64 h-96 relative rounded-lg overflow-hidden shadow-2xl transform -translate-y-12">
                 <Image
-                  src={
-                    getImageUrl(movie.poster_path, "w500") ||
-                    "/placeholder-poster.svg"
-                  }
+                  src={getImageUrl(movie.poster_path, "w500")}
                   alt={movie.title}
                   fill
                   className="object-cover"
+                  sizes="(max-width: 768px) 100vw, 256px"
+                  priority
+                  unoptimized={false}
                 />
               </div>
-
-              {/* Movie info */}
-              <div>
-                <h1 className="text-4xl md:text-5xl font-bold mb-2">
-                  {movie.title}
-                </h1>
-
-                {movie.tagline && (
-                  <p className="text-blue-400 mb-4 italic">{movie.tagline}</p>
-                )}
-
-                <div className="flex flex-wrap gap-3 mb-4">
-                  <span className="flex items-center bg-black/50 backdrop-blur-sm px-3 py-1 rounded-full">
-                    <FaStar className="text-yellow-500 mr-1" />
-                    {formatRating(movie.vote_average)} ({movie.vote_count}{" "}
-                    votes)
+              <div className="flex-1">
+                <div className="flex flex-wrap items-center gap-2 mb-1">
+                  <span className="bg-blue-600 text-white text-xs px-2 py-1 rounded-md font-medium">
+                    {releaseYear}
                   </span>
-                  <span className="flex items-center bg-black/50 backdrop-blur-sm px-3 py-1 rounded-full">
-                    <FaCalendar className="text-gray-400 mr-1" />
-                    {formatDate(movie.release_date)}
-                  </span>
-                  <span className="flex items-center bg-black/50 backdrop-blur-sm px-3 py-1 rounded-full">
-                    <FaClock className="text-gray-400 mr-1" />
-                    {formatRuntime(movie.runtime)}
+                  {movie.runtime > 0 && (
+                    <span className="bg-gray-800 text-gray-200 text-xs px-2 py-1 rounded-md font-medium flex items-center">
+                      <FaClock className="mr-1" />{" "}
+                      {formatRuntime(movie.runtime)}
+                    </span>
+                  )}
+                  <span className="bg-yellow-600 text-white text-xs px-2 py-1 rounded-md font-medium flex items-center">
+                    <FaStar className="mr-1" /> {movie.vote_average?.toFixed(1) || "N/A"}
                   </span>
                 </div>
-
+                <h1 className="text-4xl md:text-5xl font-bold mb-2 text-white">
+                  {movie.title}
+                </h1>
+                {movie.tagline && (
+                  <p className="text-xl text-gray-300 mb-4 italic">
+                    {movie.tagline}
+                  </p>
+                )}
                 <div className="flex flex-wrap gap-2 mb-4">
-                  {movie.genres.map((genre) => (
+                  {movie.genres?.map((genre: any) => (
                     <span
                       key={genre.id}
-                      className="bg-blue-900/60 text-sm px-3 py-1 rounded-full"
+                      className="text-sm text-white bg-gray-800/80 px-3 py-1 rounded-full"
                     >
                       {genre.name}
                     </span>
                   ))}
                 </div>
-
-                {/* Buttons */}
-                <div className="flex flex-wrap gap-3 mt-6">
-                  {trailers.length > 0 ? (
-                    <Link
-                      href={`#trailer`}
+                <div className="flex flex-wrap gap-3">
+                  {movie.videos?.results?.length > 0 && (
+                    <a
+                      href={getYoutubeUrl(movie.videos.results[0].key)}
+                      target="_blank"
+                      rel="noopener noreferrer"
                       className="btn-primary flex items-center"
                     >
                       <FaPlay className="mr-2" /> Watch Trailer
-                    </Link>
-                  ) : (
-                    <Link
-                      href="#play-movie"
-                      className="btn-primary flex items-center"
-                    >
-                      <FaPlay className="mr-2" /> Play Movie
-                    </Link>
+                    </a>
                   )}
                 </div>
               </div>
             </div>
           </div>
-        </div>
-
-        {/* Main content */}
-        <div className="container-custom py-8">
-          <div className="grid grid-cols-1 lg:grid-cols-[3fr_1fr] gap-8">
-            <div className="space-y-8">
-              {/* Movie Player (always available) */}
-              <section id="play-movie">
-                <h2 className="section-title">Watch Movie</h2>
-                <div className="aspect-video rounded-lg overflow-hidden glass p-1">
-                  <div className="relative w-full h-full">
-                    {movie.video ? (
-                      <VideoPlayer
-                        videoKey={
-                          movie.video ? "movie" : trailers[0]?.key || "movie"
-                        }
-                        isMainMovie={true}
-                        movieId={movie.id}
-                      />
-                    ) : (
-                      <VideoPlayer
-                        videoKey="movie"
-                        isMainMovie={true}
-                        movieId={movie.id}
-                      />
-                    )}
-                  </div>
-                </div>
-              </section>
-
-              {/* Overview */}
-              <section>
-                <h2 className="section-title">Overview</h2>
-                <p className="text-gray-300 glass p-4 rounded-lg">
-                  {movie.overview}
-                </p>
-              </section>
-
-              {/* Trailer */}
-              {trailers.length > 0 && (
-                <section id="trailer">
-                  <h2 className="section-title">Trailer</h2>
-                  <div className="aspect-video rounded-lg overflow-hidden">
-                    <VideoPlayer
-                      videoKey={trailers[0].key}
-                      isMainMovie={false}
-                    />
-                  </div>
-                </section>
-              )}
-
-              {/* Cast */}
-              {mainCast.length > 0 && (
-                <section>
-                  <h2 className="section-title">Cast</h2>
-                  <MovieCast cast={mainCast} />
-                </section>
-              )}
-
-              {/* Similar Movies */}
-              {similarMovies.length > 0 && (
-                <section>
-                  <h2 className="section-title">Similar Movies</h2>
-                  <MovieGrid movies={similarMovies} />
-                </section>
-              )}
-            </div>
-
-            {/* Sidebar */}
-            <div className="space-y-6">
-              {/* Movie poster on mobile */}
-              <div className="md:hidden relative aspect-[2/3] max-w-[300px] mx-auto rounded-lg overflow-hidden shadow-xl">
-                <Image
-                  src={
-                    getImageUrl(movie.poster_path, "w500") ||
-                    "/placeholder-poster.svg"
-                  }
-                  alt={movie.title}
-                  fill
-                  className="object-cover"
-                />
-              </div>
-
-              {/* Movie info */}
-              <div className="glass p-5">
-                <h3 className="font-bold text-lg mb-4 gradient-text">
-                  Movie Info
-                </h3>
-
-                <div className="space-y-3">
-                  {director && (
-                    <div>
-                      <span className="text-gray-400 block">Director</span>
-                      <span>{director.name}</span>
-                    </div>
-                  )}
-
-                  {writers.length > 0 && (
-                    <div>
-                      <span className="text-gray-400 block">
-                        Writer{writers.length > 1 ? "s" : ""}
-                      </span>
-                      <span>
-                        {writers.map((writer) => writer.name).join(", ")}
-                      </span>
-                    </div>
-                  )}
-
-                  <div>
-                    <span className="text-gray-400 block">Status</span>
-                    <span>{movie.status}</span>
-                  </div>
-
-                  <div>
-                    <span className="text-gray-400 block">
-                      Original Language
-                    </span>
-                    <span>
-                      {new Intl.DisplayNames(["en"], { type: "language" }).of(
-                        movie.original_language
-                      )}
-                    </span>
-                  </div>
-
-                  {movie.budget > 0 && (
-                    <div>
-                      <span className="text-gray-400 block">Budget</span>
-                      <span>${formatNumber(movie.budget)}</span>
-                    </div>
-                  )}
-
-                  {movie.revenue > 0 && (
-                    <div>
-                      <span className="text-gray-400 block">Revenue</span>
-                      <span>${formatNumber(movie.revenue)}</span>
-                    </div>
-                  )}
-                </div>
-
-                {movie.homepage && (
-                  <a
-                    href={movie.homepage}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block mt-4 text-blue-500 hover:underline"
-                  >
-                    Official Website
-                  </a>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      </>
-    );
-  } catch (error) {
-    console.error(`Error rendering movie ${params.id} page:`, error);
-    return (
-      <div className="mt-16 container-custom py-8">
-        <ErrorFallback
-          title="Movie Not Found"
-          message="We couldn't load this movie. It may not exist or there was a problem connecting to our database."
-        />
+        </motion.div>
       </div>
-    );
-  }
+
+      {/* Main content */}
+      <div className="container-custom py-8">
+        {/* Tabs */}
+        <div className="flex border-b border-gray-800 mb-8">
+          <button
+            className={`py-3 px-6 font-medium text-lg border-b-2 transition-colors ${
+              activeTab === "overview"
+                ? "border-blue-500 text-white"
+                : "border-transparent text-gray-400 hover:text-gray-200"
+            }`}
+            onClick={() => setActiveTab("overview")}
+          >
+            Overview
+          </button>
+          <button
+            className={`py-3 px-6 font-medium text-lg border-b-2 transition-colors ${
+              activeTab === "cast"
+                ? "border-blue-500 text-white"
+                : "border-transparent text-gray-400 hover:text-gray-200"
+            }`}
+            onClick={() => setActiveTab("cast")}
+          >
+            Cast
+          </button>
+          <button
+            className={`py-3 px-6 font-medium text-lg border-b-2 transition-colors ${
+              activeTab === "similar"
+                ? "border-blue-500 text-white"
+                : "border-transparent text-gray-400 hover:text-gray-200"
+            }`}
+            onClick={() => setActiveTab("similar")}
+          >
+            Similar
+          </button>
+        </div>
+
+        {/* Tab content */}
+        <div className="mb-16">
+          {activeTab === "overview" && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.3 }}
+            >
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div className="lg:col-span-2">
+                  <h2 className="text-2xl font-bold mb-4">Synopsis</h2>
+                  <p className="text-gray-300 text-lg leading-relaxed mb-6">
+                    {movie.overview || "No overview available for this movie."}
+                  </p>
+
+                  {/* Director & Writer info (if available) */}
+                  {movie.credits?.crew && (
+                    <div className="mt-8">
+                      <h3 className="text-xl font-bold mb-4">Credits</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {movie.credits.crew
+                          .filter(
+                            (person: any) =>
+                              person.job === "Director" ||
+                              person.department === "Writing"
+                          )
+                          .slice(0, 4)
+                          .map((person: any) => (
+                            <div
+                              key={`${person.id}-${person.job}`}
+                              className="flex items-start"
+                            >
+                              <div className="mr-4">
+                                <div className="w-12 h-12 rounded-full bg-gray-700 flex items-center justify-center text-xl font-bold">
+                                  {person.name.charAt(0)}
+                                </div>
+                              </div>
+                              <div>
+                                <p className="font-medium">{person.name}</p>
+                                <p className="text-sm text-gray-400">
+                                  {person.job}
+                                </p>
+                              </div>
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <div className="glass p-6 rounded-xl">
+                    <h3 className="text-xl font-bold mb-4">Movie Info</h3>
+                    <ul className="space-y-4">
+                      <li className="flex justify-between">
+                        <span className="text-gray-400">Status</span>
+                        <span className="font-medium">{movie.status || "Unknown"}</span>
+                      </li>
+                      <li className="flex justify-between">
+                        <span className="text-gray-400">Release Date</span>
+                        <span className="font-medium">
+                          {movie.release_date ? new Date(movie.release_date).toLocaleDateString() : "Unknown"}
+                        </span>
+                      </li>
+                      <li className="flex justify-between">
+                        <span className="text-gray-400">Runtime</span>
+                        <span className="font-medium">
+                          {formatRuntime(movie.runtime)}
+                        </span>
+                      </li>
+                      <li className="flex justify-between">
+                        <span className="text-gray-400">Vote Average</span>
+                        <span className="font-medium flex items-center">
+                          <FaStar className="text-yellow-500 mr-1" />
+                          {movie.vote_average?.toFixed(1) || "N/A"}
+                        </span>
+                      </li>
+                      <li className="flex justify-between">
+                        <span className="text-gray-400">Vote Count</span>
+                        <span className="font-medium">
+                          {movie.vote_count?.toLocaleString() || "0"}
+                        </span>
+                      </li>
+                      {movie.budget > 0 && (
+                        <li className="flex justify-between">
+                          <span className="text-gray-400">Budget</span>
+                          <span className="font-medium">
+                            ${movie.budget.toLocaleString()}
+                          </span>
+                        </li>
+                      )}
+                      {movie.revenue > 0 && (
+                        <li className="flex justify-between">
+                          <span className="text-gray-400">Revenue</span>
+                          <span className="font-medium">
+                            ${movie.revenue.toLocaleString()}
+                          </span>
+                        </li>
+                      )}
+                    </ul>
+
+                    {/* Production companies */}
+                    {movie.production_companies &&
+                      movie.production_companies.length > 0 && (
+                        <div className="mt-6">
+                          <h4 className="text-lg font-bold mb-3">Production</h4>
+                          <div className="flex flex-wrap gap-4">
+                            {movie.production_companies.map((company: any) => (
+                              <div
+                                key={company.id}
+                                className="flex items-center bg-gray-800/50 px-3 py-1 rounded-lg"
+                              >
+                                {company.name}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {activeTab === "cast" && (
+            <motion.div
+              variants={containerVariants}
+              initial="hidden"
+              animate="visible"
+              className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4"
+            >
+              {movie.credits?.cast?.length > 0 ? (
+                movie.credits.cast.slice(0, 18).map((person: any) => (
+                  <motion.div
+                    key={person.id}
+                    variants={itemVariants}
+                    className="bg-gray-800/60 backdrop-blur-sm border border-gray-700/50 rounded-lg overflow-hidden hover-card"
+                  >
+                    <div className="aspect-[2/3] relative">
+                      {person.profile_path ? (
+                        <Image
+                          src={getImageUrl(person.profile_path, "w500")}
+                          alt={person.name}
+                          fill
+                          className="object-cover"
+                          sizes="(max-width: 768px) 50vw, 150px"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-gray-700">
+                          <div className="text-4xl font-bold text-gray-500">
+                            {person.name.charAt(0)}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    <div className="p-3">
+                      <p className="font-medium text-sm truncate">
+                        {person.name}
+                      </p>
+                      <p className="text-xs text-gray-400 truncate">
+                        {person.character}
+                      </p>
+                    </div>
+                  </motion.div>
+                ))
+              ) : (
+                <div className="col-span-full text-center py-10">
+                  <p className="text-gray-400">No cast information available.</p>
+                </div>
+              )}
+            </motion.div>
+          )}
+
+          {activeTab === "similar" && (
+            <motion.div
+              variants={containerVariants}
+              initial="hidden"
+              animate="visible"
+              className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4"
+            >
+              {movie.similar?.results?.length > 0 ? (
+                movie.similar.results.slice(0, 12).map((similarMovie: any) => (
+                  <motion.div key={similarMovie.id} variants={itemVariants}>
+                    <Link
+                      href={`/movie/${similarMovie.id}`}
+                      className="movie-card group"
+                    >
+                      <div className="aspect-[2/3] relative overflow-hidden rounded-lg">
+                        <Image
+                          src={getImageUrl(similarMovie.poster_path, "w500")}
+                          alt={similarMovie.title}
+                          fill
+                          className="object-cover transition-transform group-hover:scale-110"
+                          sizes="(max-width: 768px) 50vw, 150px"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end">
+                          <div className="p-4">
+                            <p className="font-medium text-white">
+                              {similarMovie.title}
+                            </p>
+                            <div className="flex items-center mt-1">
+                              <FaStar className="text-yellow-500 mr-1 text-xs" />
+                              <span className="text-xs text-gray-300">
+                                {similarMovie.vote_average?.toFixed(1) || "N/A"}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </Link>
+                  </motion.div>
+                ))
+              ) : (
+                <div className="col-span-full text-center py-10">
+                  <p className="text-gray-400">No similar movies found.</p>
+                </div>
+              )}
+            </motion.div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }

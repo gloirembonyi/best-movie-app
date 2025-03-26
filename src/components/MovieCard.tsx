@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { FaStar, FaPlayCircle } from "react-icons/fa";
 import { Movie } from "@/types/movie";
-import { getImageUrl } from "@/services/movieService";
+import { getImageUrl, handleImageError } from "@/utils/imageUtils";
 import { formatDate, formatRating } from "@/utils/formatters";
 import { motion } from "framer-motion";
 
@@ -16,10 +16,20 @@ interface MovieCardProps {
 export default function MovieCard({ movie }: MovieCardProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [isHovered, setIsHovered] = useState(false);
+  const [imageError, setImageError] = useState(false);
+
   const posterUrl = getImageUrl(movie.poster_path, "w500");
 
-  // Use a placeholder if no poster is available
-  const imageSrc = posterUrl || "/placeholder-poster.svg";
+  // If there was an error loading the image, use a placeholder
+  const imageSrc = imageError
+    ? `/placeholder-movie-${(movie.id % 5) + 1}.jpg`
+    : posterUrl;
+
+  // Handle image loading errors
+  const onImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
+    setImageError(true);
+    handleImageError(e, "poster");
+  };
 
   return (
     <motion.div
@@ -44,6 +54,9 @@ export default function MovieCard({ movie }: MovieCardProps) {
               sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
               className="object-cover"
               onLoadingComplete={() => setIsLoading(false)}
+              onError={onImageError}
+              priority={false}
+              loading="lazy"
             />
           </div>
 
